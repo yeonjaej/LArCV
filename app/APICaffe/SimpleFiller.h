@@ -17,6 +17,7 @@
 #include "Processor/ProcessFactory.h"
 #include "DatumFillerBase.h"
 #include "RandomCropper.h"
+
 namespace larcv {
 
   /**
@@ -73,8 +74,18 @@ namespace larcv {
     std::vector<bool>   _mirrored;
     bool _mirror_image;
     bool _crop_image;
+    //yj
+    bool _resize_channel2;
+    bool _downsize_image;
 
+    bool _cut_empty_pixels;
+
+    bool _def_6class;
+
+    bool _pre_average_pull;
     RandomCropper _cropper;
+
+    //RandomCropper _downsizer;
 
   };
 

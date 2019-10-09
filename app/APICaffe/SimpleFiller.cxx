@@ -25,17 +25,37 @@ namespace larcv {
     _slice_v = cfg.get<std::vector<size_t> >("Channels",_slice_v);
     _mirror_image = cfg.get<bool>("EnableMirror",false);
     _crop_image     = cfg.get<bool>("EnableCrop",false);
-    if(_crop_image)
+    _resize_channel2 = cfg.get<bool>("ResizeChannel2",false);
+
+    _downsize_image = cfg.get<bool>("EnableDownsize",false);
+    
+    _cut_empty_pixels = cfg.get<bool>("CutEmptyPixels",false);
+    
+    _pre_average_pull = cfg.get<bool>("PreAveragePull",false);
+
+    _def_6class = cfg.get<bool>("Def6Class",false);
+
+    if(_crop_image || _cut_empty_pixels)
       _cropper.configure(cfg);
+
+    else if (_downsize_image || _pre_average_pull)
+      _cropper.configure(cfg);
+
     auto type_to_class = cfg.get<std::vector<unsigned short> >("ClassTypeList");
     if(type_to_class.empty()) {
       LARCV_CRITICAL() << "ClassTypeList needed to define classes!" << std::endl;
       throw larbys();
     }
+
+
+
     _roitype_to_class.clear();
     _roitype_to_class.resize(kROITypeMax,kINVALID_SIZE);
     for(size_t i=0; i<type_to_class.size(); ++i) {
       auto const& type = type_to_class[i];
+
+      //      std::cout << "type : " << type << std::endl;
+
       if(type >= kROITypeMax) {
         LARCV_CRITICAL() << "ClassTypeList contains type " << type << " which is not a valid ROIType_t!" << std::endl;
         throw larbys();
@@ -122,16 +142,40 @@ namespace larcv {
         << ") exceeds available # of channels in the input image" << std::endl;
       throw larbys();
     }
-    if ( !_crop_image ) {
+
+
+    bool changeImgsize = (_crop_image || _downsize_image || _cut_empty_pixels ||_pre_average_pull );
+
+
+    if ( ! changeImgsize ) {
       // set the dimensions from the image
       _rows = image_v.front().meta().rows();
       _cols = image_v.front().meta().cols();
     }
-    else {
+    
+    else if (_crop_image){
       // gonna crop (if speicifed dim is smaller than image dim)
       _rows = std::min( image_v.front().meta().rows(), _cropper.rows() );
       _cols = std::min( image_v.front().meta().cols(), _cropper.cols() );
+      // hard-coded
+    } 
+    else if(_cut_empty_pixels){
+	_rows = 480;
+	_cols = 560;
+      
     }
+
+    else if (_downsize_image || _pre_average_pull){
+      _rows = std::min( image_v.front().meta().rows(), _cropper.downsizerows() );
+      _cols = std::min( image_v.front().meta().cols(), _cropper.downsizecols() );
+      //std::cout << " rows : " << _rows << std::endl; 
+    }
+    
+    //    if ( _resize_channel2 && _num_channels == 1 && _slice_v[0] == 2){
+    //  _rows = 480;
+    //  _cols = 560;
+    //}
+    
 
     LARCV_INFO() << "Rows = " << _rows << " ... Cols = " << _cols << std::endl;
 
@@ -158,13 +202,17 @@ namespace larcv {
     }
     bool valid_ch   = (image_v.size() > _max_ch);
     bool valid_rows = true;
+
+    bool changeImgsize = (_crop_image || _downsize_image || _cut_empty_pixels ||_pre_average_pull );
+
     for(size_t ch=0;ch<_num_channels;++ch) {
       size_t input_ch = _slice_v[ch];
       auto const& img = image_v[input_ch];
-
-      if ( !_crop_image )
-        valid_rows = ( _rows == img.meta().rows() );
-      if(!valid_rows) {
+      //yj was from here.
+      if ( !changeImgsize  ) {
+      	valid_rows = ( _rows == img.meta().rows() );
+      }
+      if(! valid_rows) {
 	LARCV_ERROR() << "# of rows changed! (row,col): (" << _rows << "," << _cols << ") => (" 
 		      << img.meta().rows() << "," << img.meta().cols() << ")" << std::endl;
 	break;
@@ -175,8 +223,9 @@ namespace larcv {
     for(size_t ch=0;ch<_num_channels;++ch) {
       size_t input_ch = _slice_v[ch];
       auto const& img = image_v[input_ch];
-      if ( !_crop_image )
-        valid_cols = ( _cols == img.meta().cols() );
+      if ( !changeImgsize ) {
+	valid_cols = ( _cols == img.meta().cols() );
+      }
       if(!valid_cols) {
 	LARCV_ERROR() << "# of cols changed! (row,col): (" << _rows << "," << _cols << ") => (" 
 		      << img.meta().rows() << "," << img.meta().cols() << ")" << std::endl;
@@ -228,16 +277,53 @@ namespace larcv {
 
         size_t input_ch = _slice_v[ch];
 
-        auto const& input_img2d = image_v[input_ch];
-	auto const& input_meta  = input_img2d.meta();
+	auto const& input_img2d = image_v[input_ch];
+        auto const& input_meta  = input_img2d.meta();
 	_entry_meta_data.push_back(input_meta);
 
-        if(_crop_image) _cropper.set_crop_region(input_meta.rows(), input_meta.cols());
+        //if(_crop_image) _cropper.set_crop_region(input_meta.rows(), input_meta.cols());
 
-        auto const& input_image = (_crop_image ? _cropper.crop(input_img2d) : input_img2d.as_vector());
+	//if (_crop_image) auto const& input_image_crop = _cropper.crop(input_img2d); 
+	//if (_downsize_image)  auto const& input_image_downsize = _downsizer.downsize(input_img2d);
+	
+	//else {
+	//    auto const& input_image = input_img2d.as_vector();
+	//  }
+	std::vector<float> temp_image = input_img2d.as_vector();
+
+	if (_crop_image){
+	  _cropper.set_crop_region(input_meta.rows(), input_meta.cols());
+	  temp_image = _cropper.crop(input_img2d);
+
+	}
+	if (_downsize_image){
+	  //std::cout << "downsizing is " << _downsize_image << std::endl; 
+	  temp_image = _cropper.downsize(input_img2d);//_downsizer
+
+	}
+
+	if (_cut_empty_pixels){
+	  temp_image = _cropper.cut_empty(input_img2d);
+	}
+
+	if (_pre_average_pull){
+	  //temp_image = _downsizer.cut_empty(input_img2d);
+	  temp_image = _cropper.average_pull(input_img2d);//_downsizer
+	}
+
+	auto const &input_image = temp_image;
+	  
+	//auto& temp_image = ( _crop_image ? _cropper.crop(input_img2d):  input_img2d.as_vector());
+
+	//if(_downsize_image) (const std::vector<float>)input_image = _downsizer.downsize(input_img2d);
+       
+
+	
 
         size_t caffe_idx=0;
         size_t output_idx = ch * _rows * _cols;
+
+	//std::cout << "rows _ : " << _rows << " , cols : " << _cols << std::endl;   
 
         for(size_t row=0; row<_rows; ++row) {
           for(size_t col=0; col<_cols; ++col) {
@@ -266,9 +352,18 @@ namespace larcv {
       LARCV_INFO() << roi.dump() << std::endl;
       break;
     }
+    //yj did this to make HE evets to one class
+
+    if(!_def_6class){
+      if (roi_type == kROIGamma || roi_type == kROIPizero || roi_type == kROIMuminus) {
+	roi_type = kROIEminus;
+      }
+    }
 
     // Convert type to class
     size_t caffe_class = _roitype_to_class[roi_type];
+
+    //  std::cout << "caffe_class : " << caffe_class << " , roi_type : " << roi_type << std::endl;
 
     if(caffe_class == kINVALID_SIZE) {
       LARCV_CRITICAL() << "ROIType_t " << roi_type << " is not among those defined for final set of class!" << std::endl;

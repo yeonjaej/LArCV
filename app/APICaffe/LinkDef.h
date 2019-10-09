@@ -18,8 +18,12 @@
 #pragma link C++ class larcv::ThreadFillerFactory+;
 #pragma link C++ class larcv::RandomCropper+;
 #pragma link C++ class larcv::ExampleCircularBuffer+;
+#pragma link C++ class larcv::YJFiller+;
+//#pragma link C++ class larcv::Downsize+;
 //ADD_NEW_CLASS ... do not change this line
 #endif
+
+
 
 
 

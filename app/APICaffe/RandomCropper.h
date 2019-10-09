@@ -1,4 +1,4 @@
-/**
+/*
  * \file RandomCropper.h
  *
  * \ingroup APICaffe
@@ -43,18 +43,35 @@ namespace larcv {
 
     size_t cols() const { return _crop_cols; }
 
+    size_t downsizerows() const {return _downsize_rows;}
+    size_t downsizecols() const {return _downsize_cols;}
+
     const std::vector<float> crop(const larcv::Image2D& image);
+
+    const std::vector<float> cut_empty(const larcv::Image2D& image);
+
+    const std::vector<float> downsize(const larcv::Image2D& image);
     
+    const std::vector<float> average_pull(const larcv::Image2D& image);
   private:
 
     size_t _target_rows;
     size_t _target_cols;
     size_t _crop_rows;
     size_t _crop_cols;
+    size_t _downsize_rows;
+    size_t _downsize_cols;
     size_t _col_offset;
     size_t _row_offset;
     bool   _randomize_crop;
+    
     std::vector<float> _cropped_image;
+    
+    std::vector<float> _downsized_image;
+    std::vector<float> _cut_empty_image;
+
+    std::vector<float> _average_pull_image;
+
   };
 }
 

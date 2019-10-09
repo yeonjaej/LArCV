@@ -117,6 +117,8 @@ namespace larcv {
       }
 
       _label_producer_id = mgr.producer_id(_label_product_type,_label_producer);
+
+      //   std::cout << " _label_producer_ : " << _label_producer << std::endl; 
       if(_label_producer_id == kINVALID_PRODUCER) {
         LARCV_CRITICAL() << "Label producer " << _label_producer << " not valid!" << std::endl;
         throw larbys();
@@ -128,6 +130,9 @@ namespace larcv {
     LARCV_INFO() << std::endl;
     auto const image_data = mgr.get_data(_image_producer_id);
     auto const label_data = mgr.get_data(_label_producer_id);
+
+    //    std::cout << " label_data : " << &label_data << std::endl;
+
     LARCV_INFO() << std::endl;
     if(_entry_image_size==kINVALID_SIZE || _nentries == 1) {
 
